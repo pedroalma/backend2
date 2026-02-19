@@ -1,126 +1,102 @@
-const produtos = require('../data/produtos');
+// src/controllers/produtosControllers.js
 
-exports.listarTodos = (req, res) => {
-  res.status(200).json(produtos);
-};
+let produtos = [];
+try {
+  produtos = require('../data/produtos') || [];
+} catch (e) {
+  console.log("Arquivo produtos.js não encontrado → usando array vazio");
+  produtos = [];
+}
 
 exports.criar = (req, res) => {
   const {
     nomeProduto,
-    unidade,                // "kg", "g", "L", "ml"
-    quantidadePorUnidade,   // número: 5, 500, 900, etc.
-    quantidadeDePacotes,
+    unidade,
+    quantidadePorUnidade,
+    quantidadeDePacotes = 1,
     validade,
     dataRecebimento,
-    descricao
+    descricao = ""
   } = req.body;
 
-  // Validação básica dos campos obrigatórios
-  if (!nomeProduto || !unidade || !quantidadePorUnidade || !validade || !dataRecebimento || quantidadeDePacotes <= 0 ) {
+  if (!nomeProduto || !unidade || !quantidadePorUnidade || !validade) {
     return res.status(400).json({
-      erro: "Os campos nomeProduto, unidade, quantidadePorUnidade , validade e dataRecebimento  são obrigatórios"
+      erro: "Campos obrigatórios: nomeProduto, unidade, quantidadePorUnidade, validade"
     });
   }
 
-  // Validação simples da unidade
-  const unidadesValidas = ['kg', 'g', 'L', 'ml', 'KG', 'G', 'l', 'ML']; 
-  if (!unidadesValidas.includes(unidade)) {
-    return res.status(400).json({
-      erro: "Unidade inválida. Use: kg, g, L ou ml"
-    })
+  const unidadesValidas = ['kg', 'g', 'l', 'ml'];
+  if (!unidadesValidas.includes(unidade.toLowerCase())) {
+    return res.status(400).json({ erro: "Unidade inválida (kg, g, l, ml)" });
   }
 
-  // Validação do número quantidadePorUnidade
   const qtdNum = Number(quantidadePorUnidade);
   if (isNaN(qtdNum) || qtdNum <= 0) {
-    return res.status(400).json({
-      erro: "quantidadePorUnidade deve ser um número positivo"
-    });
+    return res.status(400).json({ erro: "quantidadePorUnidade deve ser número positivo" });
   }
 
-  const novoProduto = {
+  const pacotesNum = Number(quantidadeDePacotes);
+  if (isNaN(pacotesNum) || pacotesNum < 1) {
+    return res.status(400).json({ erro: "quantidadeDePacotes deve ser ≥ 1" });
+  }
+
+  const novo = {
     id: Date.now().toString(),
     nomeProduto,
-    unidade,
+    unidade: unidade.toLowerCase(),
     quantidadePorUnidade: qtdNum,
-    quantidadeDePacotes: Number(quantidadeDePacotes),
+    quantidadeDePacotes: pacotesNum,
     validade,
-    dataRecebimento: dataRecebimento || null,
-    descricao: descricao?.trim() || "",
+    dataRecebimento: dataRecebimento || new Date().toLocaleDateString('pt-BR'),
+    descricao: descricao.trim(),
     createdAt: new Date().toISOString()
   };
 
-  produtos.push(novoProduto);
+  produtos.push(novo);
 
   res.status(201).json({
     mensagem: "Produto criado com sucesso",
-    produto: novoProduto
+    produto: novo
   });
 };
 
+exports.listarTodos = (req, res) => {
+  res.status(200).json({ total: produtos.length, produtos });
+};
 
 exports.buscarPorId = (req, res) => {
-  const produto = produtos.find(p => p.id === req.params.id);
-  if (!produto) {
-    return res.status(404).json({ erro: 'Produto não encontrado' });
-  }
-  res.status(200).json(produto);
+  const p = produtos.find(item => item.id === req.params.id);
+  if (!p) return res.status(404).json({ erro: 'Não encontrado' });
+  res.json(p);
 };
 
 exports.atualizar = (req, res) => {
-  const index = produtos.findIndex(p => p.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ erro: 'Produto não encontrado' });
+  const index = produtos.findIndex(item => item.id === req.params.id);
+  if (index === -1) return res.status(404).json({ erro: 'Não encontrado' });
+
+  const updates = req.body;
+  if (updates.unidade) updates.unidade = updates.unidade.toLowerCase();
+
+  if (updates.quantidadePorUnidade !== undefined) {
+    const n = Number(updates.quantidadePorUnidade);
+    if (isNaN(n) || n <= 0) return res.status(400).json({ erro: "quantidadePorUnidade inválida" });
+    updates.quantidadePorUnidade = n;
   }
 
-  const {
-    nomeProduto,
-    unidade,
-    quantidadePorUnidade,
-    quantidadeDePacotes,
-    validade,
-    dataRecebimento,
-    descricao
-  } = req.body;
-
-  // Validações apenas nos campos que foram enviados
-  if (unidade && !['kg', 'g', 'L', 'ml', 'KG', 'G', 'l', 'ML'].includes(unidade)) {
-    return res.status(400).json({ erro: "Unidade inválida. Use: kg, g, L ou ml" });
+  if (updates.quantidadeDePacotes !== undefined) {
+    const n = Number(updates.quantidadeDePacotes);
+    if (isNaN(n) || n < 1) return res.status(400).json({ erro: "quantidadeDePacotes inválida" });
+    updates.quantidadeDePacotes = n;
   }
 
-  let qtdPorUnidadeAtualizada = produtos[index].quantidadePorUnidade;
-  if (quantidadePorUnidade !== undefined) {
-    const qtdNum = Number(quantidadePorUnidade);
-    if (isNaN(qtdNum) || qtdNum <= 0) {
-      return res.status(400).json({ erro: "quantidadePorUnidade deve ser um número positivo" });
-    }
-    qtdPorUnidadeAtualizada = qtdNum;
-  }
+  produtos[index] = { ...produtos[index], ...updates, updatedAt: new Date().toISOString() };
 
-  produtos[index] = {
-    ...produtos[index],
-    ...(nomeProduto && { nomeProduto }),
-    ...(unidade && { unidade }),
-    ...(quantidadePorUnidade !== undefined && { quantidadePorUnidade: qtdPorUnidadeAtualizada }),
-    ...(quantidadeDePacotes !== undefined && { quantidadeDePacotes: Number(quantidadeDePacotes) }),
-    ...(validade && { validade }),
-    ...(dataRecebimento !== undefined && { dataRecebimento }),
-    ...(descricao !== undefined && { descricao: descricao.trim() }),
-    updatedAt: new Date().toISOString()
-  };
-
-  res.status(200).json({
-    mensagem: 'Produto atualizado com sucesso',
-    produto: produtos[index]
-  });
+  res.json({ mensagem: "Atualizado", produto: produtos[index] });
 };
 
 exports.deletar = (req, res) => {
-  const index = produtos.findIndex(p => p.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ erro: 'Produto não encontrado' });
-  }
-
+  const index = produtos.findIndex(item => item.id === req.params.id);
+  if (index === -1) return res.status(404).json({ erro: 'Não encontrado' });
   produtos.splice(index, 1);
-  res.status(200).json({ mensagem: 'Produto deletado com sucesso' });
+  res.json({ mensagem: "Deletado com sucesso" });
 };

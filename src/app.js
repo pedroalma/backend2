@@ -1,18 +1,24 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
-
 const app = express();
 
-app.use(cors());
+// Config CORS - permite tudo em desenvolvimento (celular → PC)
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+}));
+
 app.use(express.json());
 
-// Rotas
+// Rotas de produtos
 app.use('/api/produtos', require('./routes/produtosRoutes'));
 
-// Rota de teste
+// Rota de teste simples
 app.get('/', (req, res) => {
-  res.json({ message: 'Backend rodando! Use /api/produtos' });
+  res.json({ 
+    message: 'Backend rodando! Use /api/produtos (POST para cadastrar)' 
+  });
 });
 
 // 404 global
@@ -21,7 +27,7 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`Acesse do celular usando: http://172.20.16.1:${PORT}`);
 });
