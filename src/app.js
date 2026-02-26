@@ -1,8 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+
 const app = express();
 
-// Config CORS - permite tudo em desenvolvimento (celular → PC)
+// Apenas UMA dessas linhas (escolha uma):
+const { sequelize } = require('./models');          // ← Opção 1 (melhor)
+// OU
+// const sequelize = require('./config/database');       // ← Opção 2
+
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -11,9 +16,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// Rotas de produtos
 app.use('/api/produtos', require('./routes/produtosRoutes'));
-
 // Rota de teste simples
 app.get('/', (req, res) => {
   res.json({ 
@@ -31,3 +34,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   console.log(`Acesse do celular usando: http://172.20.16.1:${PORT}`);
 });
+
+sequelize.authenticate()
+  .then(() => console.log('Conexão com MySQL OK!'))
+  .catch(err => console.error('Erro na conexão:', err));
