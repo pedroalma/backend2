@@ -1,60 +1,73 @@
-// src/controllers/produtosControllers.js
 const { Produto } = require('../models');
 
-exports.criar = async (req, res) => {
- try {
- const {
- descricao,
- quantidade,
- peso,
- unidade,
- codBar,
- dataDeEntrada,
- dataDeValidade,
- dataLimiteDeSaida
- } = req.body;
+exports.cadastrarProduto = async (req, res) => {
+  try {
+    console.log('Payload recebido:', req.body);
 
- // Validações básicas
- if (!descricao || !quantidade || !peso || !unidade) {
- return res.status(400).json({ 
- erro: "Campos obrigatórios: descricao, quantidade, peso, unidade" 
- });
- }
+    const {
+      descricao,
+      quantidade,
+      peso,
+      unidade,
+      codBar,
+      dataDeEntrada,
+      dataDeValidade,
+      dataLimiteDeSaida
+    } = req.body;
 
- const unidadesValidas = ['kg', 'g', 'l', 'ml', 'un', 'cx', 'pct'];
- if (!unidadesValidas.includes(unidade.toLowerCase())) {
- return res.status(400).json({ erro: "Unidade inválida (kg, g, l, ml, un, cx, pct)" });
- }
+    // Validações
+    if (!descricao || !quantidade || !peso || !unidade) {
+      return res.status(400).json({ erro: "Campos obrigatórios faltando" });
+    }
 
- const novoProduto = await Produto.create({
-  descricao: descricao.trim(),
-  quantidade: Number(quantidade),
-  peso: Number(peso),
-  unidade: unidade.toLowerCase(),
-  codBar: codBar || '0000000000000',  // valor padrão temporário (ou gere um único)
-  dataDeEntrada: dataDeEntrada ? new Date(dataDeEntrada) : new Date(),
-  dataDeValidade: dataDeValidade ? new Date(dataDeValidade) : new Date(),
-  dataLimiteDeSaida: dataLimiteDeSaida ? new Date(dataLimiteDeSaida) : null,
-  
-  // Valores FIXOS para teste (pegue valores reais das tabelas referenciadas)
-  codUsu: 1,      // <--- mude para um codUsu REAL existente em tbusuarios
-  codOri: 1,      // <--- mude para um codOri REAL existente em tborigemdocao
-  codList: 1      // <--- mude para um codList REAL existente em tblista
-});
+    const unidadesValidas = ['kg', 'g', 'l', 'ml', 'un', 'cx', 'pct'];
+    if (!unidadesValidas.includes(unidade.toLowerCase())) {
+      return res.status(400).json({ erro: "Unidade inválida" });
+    }
 
- res.status(201).json({
- mensagem: "Produto cadastrado com sucesso",
- produto: novoProduto
- });
- } catch (error) {
- console.error('Erro ao criar produto:', error);
- res.status(500).json({ 
- erro: "Erro ao cadastrar produto", 
- detalhes: error.message 
- });
- }
+    const produto = await Produto.create({
+      descricao: descricao.trim(),
+      quantidade: Number(quantidade),
+      peso: Number(peso),
+      unidade: unidade.toLowerCase(),
+      codBar: codBar || '0000000000000',
+      dataDeEntrada: dataDeEntrada ? new Date(dataDeEntrada) : new Date(),
+      dataDeValidade: dataDeValidade ? new Date(dataDeValidade) : new Date(),
+      dataLimiteDeSaida: dataLimiteDeSaida ? new Date(dataLimiteDeSaida) : null,
+      codUsu: 1,
+      codOri: 1,
+      codList: 1
+    });
+
+    console.log('Produto criado:', produto.toJSON());
+    return res.status(201).json(produto);
+  } catch (err) {
+    console.error('ERRO AO CRIAR PRODUTO:');
+    console.error(err.message);
+    console.error(err.stack);
+
+    if (err.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        error: 'Dados inválidos',
+        details: err.errors.map(e => e.message)
+      });
+    }
+
+    if (err.name === 'SequelizeDatabaseError' || err.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({
+        error: 'Erro de banco de dados',
+        details: err.message
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Erro interno no servidor',
+      message: err.message || 'Detalhes não disponíveis'
+    });
+  }
 };
 
+// Mantenha os outros métodos (listarTodos, buscarPorId, atualizar, deletar)
 exports.listarTodos = async (req, res) => {
  try {
  const produtos = await Produto.findAll();
